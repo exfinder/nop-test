@@ -73,3 +73,6 @@ Set-ItemProperty IIS:\AppPools\AspNetCoreAppPool enable32BitAppOnWin64 true
 Set-ItemProperty IIS:\AppPools\AspNetCoreAppPool startMode AlwaysRunning
 Set-ItemProperty "IIS:\Sites\Default Web Site" applicationPool AspNetCoreAppPool
 Remove-WebAppPool DefaultAppPool
+
+# download and run this script from github
+# Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/exfinder/nop-test/master/script.ps1'))
