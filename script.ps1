@@ -1,8 +1,7 @@
-$temp = "temp"
 $userName = "webdeploy"
 $userPassword = "Ghjuhfvvth)81"
 $saPassword = $userPassword
-$mediaPath = Join-Path (Convert-Path .) $temp
+$mediaPath = Join-Path (Convert-Path .) "temp"
 $initialFile = Join-Path $mediaPath "SQLServer2017-SSEI-Expr.exe"
 $latestUpdateFile = Join-Path $mediaPath "SQLServer2017-KB4515579-x64.exe"
 $mediaFile = Join-Path $mediaPath "SQLEXPRADV_x64_ENU.exe"
@@ -10,7 +9,7 @@ $extractedMediaPath = Join-Path $mediaPath "SQLEXPRADV_x64_ENU"
 $setupFile = Join-Path $extractedMediaPath "SETUP.EXE"
 $sqlDataPath = "c:\data"
 
-mkdir $temp -ea 0
+mkdir "$mediaPath" -ea 0
 
 # install additional powershell modules: sqlserver, dbatools
 Install-PackageProvider -Name NuGet -Force
