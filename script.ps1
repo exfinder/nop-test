@@ -7,6 +7,7 @@ $latestUpdateFile = Join-Path $mediaPath "SQLServer2017-KB4515579-x64.exe"
 $mediaFile = Join-Path $mediaPath "SQLEXPRADV_x64_ENU.exe"
 $extractedMediaPath = Join-Path $mediaPath "SQLEXPRADV_x64_ENU"
 $setupFile = Join-Path $extractedMediaPath "SETUP.EXE"
+$defaultWebSite = "Default Web Site";
 $sqlDataPath = "c:\data"
 
 mkdir "$mediaPath" -ea 0
@@ -88,13 +89,18 @@ Set-ItemProperty IIS:\AppPools\AspNetCoreAppPool managedRuntimeVersion ""
 Set-ItemProperty IIS:\AppPools\AspNetCoreAppPool enable32BitAppOnWin64 true
 Set-ItemProperty IIS:\AppPools\AspNetCoreAppPool startMode AlwaysRunning
 Set-ItemProperty IIS:\AppPools\AspNetCoreAppPool processModel @{userName=$userName;password=$userPassword;identitytype=3}
-Set-ItemProperty "IIS:\Sites\Default Web Site" applicationPool AspNetCoreAppPool
+Set-ItemProperty "IIS:\Sites\$defaultWebSite" applicationPool AspNetCoreAppPool
 Remove-WebAppPool DefaultAppPool
 
 # restart web related services
 Restart-Service MsDepSvc
 Restart-Service wmsvc
 Restart-Service w3svc
+
+# web deploy: setup site for publish
+Push-Location -Path "$Env:Programfiles\IIS\Microsoft Web Deploy V3\Scripts"
+.\SetupSiteForPublish.ps1 -siteName "$defaultWebSite" -deploymentUserName $userName -publishSettingSavePath (Convert-Path ~)
+Pop-Location
 
 # download and run this script from github
 # Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/exfinder/nop-test/master/script.ps1'))
