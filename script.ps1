@@ -1,14 +1,31 @@
 $temp = "temp"
+$userName = "webdeploy"
+$userPassword = "Ghjuhfvvth)81"
+$saPassword = $userPassword
 $mediaPath = Join-Path (Convert-Path .) $temp
 $initialFile = Join-Path $mediaPath "SQLServer2017-SSEI-Expr.exe"
 $latestUpdateFile = Join-Path $mediaPath "SQLServer2017-KB4515579-x64.exe"
 $mediaFile = Join-Path $mediaPath "SQLEXPRADV_x64_ENU.exe"
 $extractedMediaPath = Join-Path $mediaPath "SQLEXPRADV_x64_ENU"
 $setupFile = Join-Path $extractedMediaPath "SETUP.EXE"
+$sqlDataPath = "c:\data"
 
 mkdir $temp -ea 0
 
+# install additional powershell modules: sqlserver, dbatools
+Install-PackageProvider -Name NuGet -Force
+Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+Install-Module dbatools
+Install-Module sqlserver
+
+# import required modules
+Import-Module dbatools
+Import-Module sqlserver
 Import-Module BitsTransfer
+
+# create local user for web deploy and sql
+$password = ConvertTo-SecureString $userPassword -AsPlainText -Force
+New-LocalUser $userName -Password $password -Description "Web deploy user, SQL user" -AccountNeverExpires -PasswordNeverExpires -UserMayNotChangePassword
 
 # download SQL Expr installer
 $url = "https://download.microsoft.com/download/5/E/9/5E9B18CC-8FD5-467E-B5BF-BADE39C51F73/SQLServer2017-SSEI-Expr.exe"
@@ -25,7 +42,7 @@ Start-BitsTransfer -Source $url -Destination $mediaPath
 & $mediaFile /u /x:$extractedMediaPath | Out-Default
 
 # run SQL Expr setup: SQLEngine and FullText features only
-& $setupFile /QS /ACTION=Install /FEATURES=SQLEngine,FullText /INSTANCENAME=MSSQLSERVER /ENU /UpdateEnabled=1 /SQLSVCACCOUNT="NT AUTHORITY\Network Service" /ADDCURRENTUSERASSQLADMIN /SECURITYMODE=SQL /SAPWD="Ghjuhfvvth)81" /INSTALLSQLDATADIR="c:\data" /TCPENABLED=1 /INDICATEPROGRESS /IACCEPTSQLSERVERLICENSETERMS
+& $setupFile /QS /ACTION=Install /FEATURES=SQLEngine,FullText /INSTANCENAME=MSSQLSERVER /ENU /UpdateEnabled=1 /SQLSVCACCOUNT="NT AUTHORITY\Network Service" /ADDCURRENTUSERASSQLADMIN /SECURITYMODE=SQL /SAPWD=$saPassword /INSTALLSQLDATADIR=$sqlDataPath /TCPENABLED=1 /INDICATEPROGRESS /IACCEPTSQLSERVERLICENSETERMS
 
 # run SQL Expr latest patch
 & $latestUpdateFile /QS /ACTION=Patch /INSTANCENAME=MSSQLSERVER /INDICATEPROGRESS /IACCEPTSQLSERVERLICENSETERMS | Out-Default
@@ -39,6 +56,11 @@ Set-Service -Name MSSQLFDLauncher -StartupType Automatic
 Start-Service MSSQLSERVER
 Start-Service SQLBrowser
 Start-Service MSSQLFDLauncher
+
+# add SQL login ($userName that has been created earlier)
+$sqlLoginName = "${env:ComputerName}\$userName"
+Add-SqlLogin -ServerInstance localhost -LoginName $sqlLoginName -LoginType WindowsUser -GrantConnectSql -Enable
+Invoke-Sqlcmd -ServerInstance localhost -Query "USE master; GRANT CREATE ANY DATABASE TO [$sqlLoginName]"
 
 # new firewall rule: allow inbound connection for MSSQLSERVER service
 New-NetFirewallRule -DisplayName "MSSQLSERVER" -Direction Inbound -Service MSSQLSERVER -Action Allow
@@ -61,18 +83,19 @@ choco install dotnetcore-windowshosting --version=2.2.7 -y
 # install Web Deploy
 choco install webdeploy -y
 
-# restart web related services
-Restart-Service MsDepSvc
-Restart-Service wmsvc
-Restart-Service w3svc
-
 # create IIS app pool
 New-WebAppPool AspNetCoreAppPool
 Set-ItemProperty IIS:\AppPools\AspNetCoreAppPool managedRuntimeVersion ""
 Set-ItemProperty IIS:\AppPools\AspNetCoreAppPool enable32BitAppOnWin64 true
 Set-ItemProperty IIS:\AppPools\AspNetCoreAppPool startMode AlwaysRunning
+Set-ItemProperty IIS:\AppPools\AspNetCoreAppPool processModel @{userName=$userName;password=$userPassword;identitytype=3}
 Set-ItemProperty "IIS:\Sites\Default Web Site" applicationPool AspNetCoreAppPool
 Remove-WebAppPool DefaultAppPool
+
+# restart web related services
+Restart-Service MsDepSvc
+Restart-Service wmsvc
+Restart-Service w3svc
 
 # download and run this script from github
 # Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/exfinder/nop-test/master/script.ps1'))
