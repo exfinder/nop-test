@@ -12,15 +12,6 @@ $sqlDataPath = "c:\data"
 
 mkdir "$mediaPath" -ea 0
 
-# install additional powershell modules: sqlserver, dbatools
-Install-PackageProvider -Name NuGet -Force
-Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-Install-Module dbatools
-Install-Module sqlserver
-
-# import required modules
-Import-Module dbatools
-Import-Module sqlserver
 Import-Module BitsTransfer
 
 # create local user for web deploy and sql
@@ -56,6 +47,18 @@ Set-Service -Name MSSQLFDLauncher -StartupType Automatic
 Start-Service MSSQLSERVER
 Start-Service SQLBrowser
 Start-Service MSSQLFDLauncher
+
+# install powershell NuGet package provider
+Install-PackageProvider -Name NuGet -Force
+Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+
+# install additional powershell modules: sqlserver, dbatools
+Install-Module dbatools
+Install-Module sqlserver
+
+# import modules: sqlserver, dbatools
+Import-Module dbatools
+Import-Module sqlserver
 
 # add SQL login ($userName that has been created earlier)
 $sqlLoginName = "${env:ComputerName}\$userName"
